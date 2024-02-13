@@ -2,8 +2,12 @@
   <img src="http://i.imgur.com/SJhwBpU.png" alt="Toolkit for YNAB">
 </p>
 
-[![Build Status](https://travis-ci.org/toolkit-for-ynab/toolkit-for-ynab.svg?branch=master)](https://travis-ci.org/toolkit-for-ynab/toolkit-for-ynab)
+[![Build Status](https://travis-ci.org/toolkit-for-ynab/toolkit-for-ynab.svg?branch=main)](https://travis-ci.org/toolkit-for-ynab/toolkit-for-ynab)
 [![Chat](https://img.shields.io/discord/743988612382589010?logo=discord)](https://discord.gg/jFKzZR2)
+
+# **Maintenence Mode (Looking for Maintainers)**
+
+**The Toolkit for YNAB is officially in maintenence mode. This means updates will be much more infrequent and will likely only contain bug fixes and not new features. We're actively looking for some new maintainers who are willing to take on the duties of the approving and releasing updates. Please reach out to Josh Madewell in our [Discord](https://discord.gg/jFKzZR2).**
 
 Toolkit for YNAB is a browser extension that enhances your experience with the YNAB Web Application.
 
@@ -35,14 +39,6 @@ Note: Since the extension is built with Web Extensions and that is not supported
 the extension itself is not supported on Safari. When/if Safari decides to support Web Extensions
 we will do what we can to provide support for their browser.
 
-### Roadmap
-
-Features under consideration and the general status of the project and roadmap is
-on [our Trello Board](https://trello.com/b/EzOvXlil/ynab-enhanced-roadmap). Feel
-free to vote and comment. To suggest a new feature, please [submit an issue](https://github.com/toolkit-for-ynab/toolkit-for-ynab/issues/new)
-on GitHub. Once the feature has been added to the Trello board, you will be informed
-allowing you to vote and follow the Trello card for any updates.
-
 ### Contributions
 
 Contributions are greatly welcomed. If you want to contribute, it's best if you can let
@@ -51,7 +47,7 @@ on the roadmap. If you can't find what you want to build on the roadmap, feel fr
 a note up on the github issues board to let the team know you're working on something new.
 When your code is ready, submit a pull request.
 
-For documentation on how to build a feature, [see the documentation](https://github.com/toolkit-for-ynab/toolkit-for-ynab/blob/master/docs/building-features.md).
+For documentation on how to build a feature, [see the documentation](https://github.com/toolkit-for-ynab/toolkit-for-ynab/blob/main/docs/building-features.md).
 
 ### Building the Code
 
@@ -63,16 +59,21 @@ This extension uses three main things in its build process:
   content scripts) into single files and manages most of the build process.
 
 1. Clone the repository.
-2. Install Node.js (>= v8.12.0) and Yarn (>= v1.10.0).
+2. Install Node.js (>=18.12.1) and Yarn (>= v1.10.0).
 
    - On **macOS** both prerequisites can be setup using `brew`. Ensure command line developer tools (`xcode-select --install`) are also installed.
    - On **Windows** `node` and `yarn` can be installed via Chocolatey (`choco`) package manager.
 
-3. Run `yarn install` within the folder you cloned. This will install all the dependencies needed for the project.
-4. Run `yarn build:development` from within the folder you cloned which will build the Toolkit.
+3. If on VS Code you can Run Task Setup to skip steps 4 & 5. Other Tasks to run are available in the Command Pallet.
+4. Run `yarn install` within the folder you cloned. This will install all the dependencies needed for the project.
+5. Run `yarn build:development` from within the folder you cloned which will build the Toolkit.
 
 - Whilst developing, you may prefer to run `yarn watch` which will monitor the project
-  directory for changes and run `yarn build:development` automatically for you.
+  directory for changes and run `yarn build:development` automatically for you. If you're
+  not going to add new features and plan to work only on existing ones (i.e. your changes
+  don't require regenerating indexes) you can use `yarn watch:webpack`, this will compile
+  changes only your changes to code, without regenerating indexes which might noticeably
+  speed up the development.
 
 5.  Deploying the extension:
 

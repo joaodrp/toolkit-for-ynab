@@ -1,5 +1,5 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+import * as ReactDOM from 'react-dom/client';
 import { Feature } from 'toolkit/extension/features/feature';
 import { Root } from './pages/root';
 import { l10n } from 'toolkit/extension/utils/toolkit';
@@ -27,22 +27,31 @@ export class ToolkitReports extends Feature {
     return true;
   }
 
+  destroy() {
+    $(TOOLKIT_REPORTS_NAVLINK_SELECTOR).remove();
+    $('#TOOLKIT_REPORTS_CONTAINER_ID').remove();
+  }
+
   invoke() {
     if (!document.getElementById(TOOLKIT_REPORTS_CONTAINER_ID)) {
       $(YNAB_CONTENT_CONTAINER_SELECTOR).append(
         $('<div>', {
           id: TOOLKIT_REPORTS_CONTAINER_ID,
-          css: { height: '100%' },
         })
       );
     }
 
     if (!$(TOOLKIT_REPORTS_NAVLINK_SELECTOR).length) {
       const toolkitReportsLink = $('<li>', {
-        class: TOOLKIT_REPORTS_NAVLINK_CLASS,
+        class: `navlink ${TOOLKIT_REPORTS_NAVLINK_CLASS}`,
       }).append(
         $('<a>', { class: 'tk-navlink' })
-          .append($('<i>', { class: 'flaticon stroke document-4' }))
+          .append(
+            $(`<svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 10C21 6.13401 17.866 3 14 3V10H21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M11 21C15.4183 21 19 17.4183 19 13H11V5C6.58172 5 3 8.58172 3 13C3 17.4183 6.58172 21 11 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`)
+          )
           .append(
             $('<div>', { class: 'tk-navlink__label' }).text(
               l10n('toolkit.reports', 'Toolkit Reports')
@@ -76,41 +85,40 @@ export class ToolkitReports extends Feature {
     $(TOOLKIT_REPORTS_NAVLINK_SELECTOR).removeClass('active');
 
     // Show the current ynab report
-    $(YNAB_CONTENT_CONTAINER_SELECTOR)
-      .children()
-      .first()
-      .show();
+    $(YNAB_CONTENT_CONTAINER_SELECTOR).children().first().show();
 
     // Unmount and hide the toolkit's report
+    if (this.reactRoot) {
+      this.reactRoot.unmount();
+    }
     const container = document.getElementById(TOOLKIT_REPORTS_CONTAINER_ID);
     if (container) {
-      ReactDOM.unmountComponentAtNode(container);
+      $(container).css('height', '');
     }
 
     // Update the nav with the active indicator
     const $currentTarget = $(event.currentTarget);
-    if (YNAB_NAVLINK_CLASSES.some(className => $currentTarget.hasClass(className))) {
+    if (YNAB_NAVLINK_CLASSES.some((className) => $currentTarget.hasClass(className))) {
       $currentTarget.addClass('active');
     } else if ($currentTarget.hasClass(YNAB_NAVACCOUNT_CLASS)) {
       $currentTarget.addClass('is-selected');
     }
   }
 
-  _renderToolkitReports() {
+  _renderToolkitReports = () => {
     setTimeout(() => {
       // Hide the ynab report
-      $(YNAB_CONTENT_CONTAINER_SELECTOR)
-        .children()
-        .first()
-        .hide();
+      $(YNAB_CONTENT_CONTAINER_SELECTOR).children().first().hide();
 
       // Display the toolkit's report
       const container = document.getElementById(TOOLKIT_REPORTS_CONTAINER_ID);
       if (container) {
-        ReactDOM.render(React.createElement(Root), container);
+        $(container).css('height', '100%');
+        this.reactRoot = ReactDOM.createRoot(container);
+        this.reactRoot.render(React.createElement(Root));
       }
     }, 50);
-  }
+  };
 
   onRouteChanged() {
     this.invoke();

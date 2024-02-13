@@ -1,51 +1,47 @@
 import { Feature } from 'toolkit/extension/features/feature';
-import { isCurrentRouteBudgetPage } from 'toolkit/extension/utils/ynab';
 
 export class RemoveZeroCategories extends Feature {
-  shouldInvoke() {
-    return isCurrentRouteBudgetPage();
-  }
-
-  invoke() {
-    let coverOverbudgetingCategories = $('.modal-budget-overspending .dropdown-list > li');
-    coverOverbudgetingCategories.each(function() {
-      let t = $(this)
-        .find('.category-available')
-        .attr('title'); // Category balance text.
-      if (t == null) {
-        return;
-      }
-      let categoryBalance = parseInt(t.replace(/[^\d-]/g, ''));
-      if (categoryBalance <= 0) {
-        $(this).remove();
-      }
-    });
-
-    coverOverbudgetingCategories = $('.modal-budget-overspending .dropdown-list > li');
-
-    // Remove empty sections.
-    for (let i = 0; i < coverOverbudgetingCategories.length - 1; i++) {
-      if (
-        $(coverOverbudgetingCategories[i]).hasClass('section-item') &&
-        $(coverOverbudgetingCategories[i + 1]).hasClass('section-item')
-      ) {
-        $(coverOverbudgetingCategories[i]).remove();
-      }
-    }
-
-    // Remove last section empty.
-    if (coverOverbudgetingCategories.last().hasClass('section-item')) {
-      coverOverbudgetingCategories.last().remove();
-    }
+  destroy() {
+    $('.modal-budget-overspending .dropdown-list > li').removeClass('tk-hidden');
   }
 
   observe(changedNodes) {
-    if (!this.shouldInvoke()) {
-      return;
+    if (changedNodes.has('dropdown-container categories-dropdown-container')) {
+      this.hideEmpties();
     }
+  }
 
-    if (changedNodes.has('category-item-container')) {
-      this.invoke();
+  hideEmpties() {
+    let lastSectionItem = null;
+    let hideSectionItem = true;
+
+    Array.from(document.querySelectorAll('.modal-budget-overspending .dropdown-list > li')).forEach(
+      (element) => {
+        if (element.classList.contains('section-item')) {
+          if (lastSectionItem && hideSectionItem) {
+            lastSectionItem.classList.add('tk-hidden');
+          }
+
+          lastSectionItem = element;
+          hideSectionItem = true;
+        }
+
+        const availableTitle = element.querySelector('.category-available')?.getAttribute('title');
+        if (!availableTitle) {
+          return;
+        }
+
+        let categoryBalance = ynab.unformat(availableTitle);
+        if (categoryBalance <= 0) {
+          element.classList.add('tk-hidden');
+        } else {
+          hideSectionItem = false;
+        }
+      }
+    );
+
+    if (lastSectionItem && hideSectionItem) {
+      lastSectionItem.classList.add('tk-hidden');
     }
   }
 }

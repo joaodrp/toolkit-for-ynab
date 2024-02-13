@@ -1,61 +1,52 @@
 import { Feature } from 'toolkit/extension/features/feature';
-import { addToolkitEmberHook } from 'toolkit/extension/utils/toolkit';
 
 export class SwapClearedFlagged extends Feature {
+  shouldInvoke() {
+    return true;
+  }
+
   injectCSS() {
     return require('./index.css');
   }
 
-  shouldInvoke() {
-    return true;
-  }
-
-  shouldInvoke() {
-    return true;
-  }
-
   invoke() {
-    const rows = [
-      'register/grid-header',
-      'register/grid-sub',
-      'register/grid-row',
-      'register/grid-scheduled',
-      'register/grid-scheduled-sub',
-      'register/grid-actions',
-      'register/grid-pending',
-      'register/grid-split',
-      'register/grid-edit',
-    ];
+    const header = document.querySelector('.ynab-grid-header-row');
+    if (header) {
+      this.swapColumns(header);
+    }
 
-    addToolkitEmberHook(this, 'register/grid-header', 'didRender', swapColumns);
-
-    rows.forEach(key => {
-      addToolkitEmberHook(this, key, 'didInsertElement', swapColumns);
-    });
-  }
-}
-
-function swapColumns(element) {
-  const clearedColumn = element.querySelector('.ynab-grid-cell-cleared');
-  const flagColumn = element.querySelector('.ynab-grid-cell-flag');
-  if (
-    !clearedColumn ||
-    !flagColumn ||
-    clearedColumn.classList.contains('tk-swapped') ||
-    flagColumn.classList.contains('tk-swapped')
-  ) {
-    return;
+    for (const element of document.querySelectorAll('.ynab-grid-body-row')) {
+      this.swapColumns(element);
+    }
   }
 
-  const beforeClearedColumn = clearedColumn.previousElementSibling;
-  const beforeFlagColumn = flagColumn.previousElementSibling;
-  if (!beforeClearedColumn || !beforeFlagColumn) {
-    return;
+  destroy() {
+    this.invoke();
   }
 
-  clearedColumn.classList.add('tk-swapped');
-  flagColumn.classList.add('tk-swapped');
+  observe(changedNodes) {
+    if (!changedNodes.has('ynab-grid-body')) return;
+    if (this.shouldInvoke()) {
+      this.invoke();
+    }
+  }
 
-  beforeClearedColumn.after(flagColumn);
-  beforeFlagColumn.after(clearedColumn);
+  swapColumns(element) {
+    const clearedColumn = element.querySelector('.ynab-grid-cell-cleared');
+    const flagColumn = element.querySelector('.ynab-grid-cell-flag');
+    if (!clearedColumn || !flagColumn) {
+      return;
+    }
+
+    const clearedIndex = Array.from(clearedColumn.parentElement.children).indexOf(clearedColumn);
+    const flagIndex = Array.from(flagColumn.parentElement.children).indexOf(flagColumn);
+    const isSwapped = clearedIndex < flagIndex;
+    if ((this.settings.enabled && !isSwapped) || (!this.settings.enabled && isSwapped)) {
+      const $tmp = $('<div>');
+      $(clearedColumn).after($tmp);
+      $(flagColumn).after($(clearedColumn));
+      $tmp.after($(flagColumn));
+      $tmp.remove();
+    }
+  }
 }

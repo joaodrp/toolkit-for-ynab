@@ -35,6 +35,12 @@ export class ImportNotification extends Feature {
     this.checkImportTransactions();
   };
 
+  destroy() {
+    $(`.nav-account-row .nav-account-name.${this.importClass}`)
+      .removeAttr('title')
+      .removeClass(this.importClass);
+  }
+
   observe(changedNodes) {
     if (!this.shouldInvoke()) return;
     // To minimize checking for imported transactions, only do it if the changed nodes includes ynab-grid-body
@@ -54,26 +60,17 @@ export class ImportNotification extends Feature {
     this.isActive = true;
 
     $('.nav-account-row').each((index, row) => {
-      let account = getEmberView($(row).attr('id'), 'data');
+      let account = getEmberView($(row).attr('id')).account;
       let accountName = $('.nav-account-name', row);
       if (accountName.length) {
         // Remove the title attribute and our underline class in case the account no longer has txns to be imported
-        $(accountName)
-          .removeAttr('title')
-          .removeClass(this.importClass);
+        $(accountName).removeAttr('title').removeClass(this.importClass);
 
-        let currentTitle = $(row)
-          .find('.nav-account-name')
-          .prop('title');
+        let currentTitle = $(row).find('.nav-account-name').prop('title');
 
         // Check for both functions should be temporary until all users have been switched to new bank data
         // provider but of course we have no good way of knowing when that has occurred.
-        if (
-          (typeof account.getDirectConnectEnabled === 'function' &&
-            account.getDirectConnectEnabled()) ||
-          (typeof account.getIsDirectImportActive === 'function' &&
-            account.getIsDirectImportActive())
-        ) {
+        if (account.isDirectImportActive) {
           let t = new ynab.managers.DirectImportManager(
             ynab.YNABSharedLib.defaultInstance.entityManager,
             account

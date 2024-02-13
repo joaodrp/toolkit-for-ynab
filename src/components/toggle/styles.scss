@@ -1,0 +1,66 @@
+:root {
+  --tk-toggle-checked-switch-color: #636366;
+  --tk-toggle-unchecked-switch-color: #636366;
+  --tk-toggle-checked-fill-color: #4495d7;
+  --tk-toggle-unchecked-fill-color: #aeaeb2;
+}
+
+.toggle {
+  min-width: 64px;
+  height: 24px;
+
+  &__input {
+    display: none;
+  }
+
+  &__label {
+    position: relative;
+    display: block;
+    cursor: pointer;
+    background-color: var(--tk-toggle-unchecked-fill-color);
+    border-radius: 99999px;
+    width: 4rem;
+    height: 2rem;
+    transition: background-color 200ms ease;
+    box-shadow: inset rgba(0, 0, 0, 0.12) 0px 0px 2px 1px;
+
+    &--labeled {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    &::after {
+      content: '';
+      background-color: var(--tk-toggle-unchecked-switch-color);
+      height: 1.5rem;
+      width: 1.5rem;
+      border-radius: 99999px;
+      position: absolute;
+      left: 0.25rem;
+      top: 0.25rem;
+      transition: left 200ms ease, background-color 200ms ease;
+    }
+  }
+
+  &__toggle-text {
+    color: #f1f1f1;
+
+    &--left {
+      margin-left: 6px;
+    }
+
+    &--right {
+      margin-right: 6px;
+    }
+  }
+
+  .toggle__input:checked + .toggle__label {
+    background-color: var(--tk-toggle-checked-fill-color);
+  }
+
+  .toggle__input:checked + .toggle__label::after {
+    background-color: var(--tk-toggle-checked-switch-color);
+    left: 2.2rem;
+  }
+}

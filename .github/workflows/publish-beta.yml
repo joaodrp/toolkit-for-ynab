@@ -1,0 +1,29 @@
+name: publish-beta
+on:
+  push:
+    branches: [beta]
+  workflow_dispatch:
+jobs:
+  publish-beta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set Node.js from .nvmrc
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: '.nvmrc'
+      - uses: borales/actions-yarn@v4
+        with:
+          cmd: install
+      - uses: borales/actions-yarn@v4
+        with:
+          cmd: build:beta
+      - uses: borales/actions-yarn@v4
+        with:
+          cmd: publish:chrome
+        env:
+          CHROME_EXTENSION_ID: mkgdgjnaaejddflnldinkilabeglghlo
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

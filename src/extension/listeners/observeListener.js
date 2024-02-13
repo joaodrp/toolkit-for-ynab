@@ -1,20 +1,30 @@
 import { withToolkitError } from 'toolkit/core/common/errors/with-toolkit-error';
+import { ynabRequire } from '../utils/ynab';
 
-let instance = null;
+const { later } = ynabRequire('@ember/runloop');
+
+const IGNORE_UPDATES = new Set([
+  // every time you hover a budget row, one of these nodes change which is _just a lot_.
+  'ynab-new-icon category-moves-moves-icon',
+  'budget-table-cell-category-moves js-budget-toolbar-open-category-moves',
+  'budget-table-cell-category-moves js-budget-toolbar-open-category-moves category-moves-hidden',
+  // when you scroll on an accounts page :D
+  'ynab-grid-container  scrolling',
+]);
 
 export class ObserveListener {
-  constructor() {
-    if (instance) {
-      return instance;
-    }
+  lastChangedNodes = new Set();
 
+  duplicateCount = 0;
+
+  constructor() {
     this.features = [];
 
     let _MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
-    let observer = new _MutationObserver(mutations => {
+    let observer = new _MutationObserver((mutations) => {
       this.changedNodes = new Set();
 
-      const addChangedNodes = nodes => {
+      const addChangedNodes = (nodes) => {
         nodes.each((index, element) => {
           var nodeClass = $(element).attr('class');
           if (nodeClass) {
@@ -23,7 +33,7 @@ export class ObserveListener {
         });
       };
 
-      mutations.forEach(mutation => {
+      mutations.forEach((mutation) => {
         let newNodes = mutation.target;
         let addedNodes = mutation.addedNodes;
         let $nodes = $(newNodes);
@@ -36,23 +46,52 @@ export class ObserveListener {
         }
       });
 
-      // Now we are ready to feed the change digest to the
-      // automatically setup feedChanges file/function
-      if (this.changedNodes.size > 0) {
+      const shouldIgnore =
+        this.changedNodes.size === 0 ||
+        Array.from(this.changedNodes).every((change) => IGNORE_UPDATES.has(change));
+
+      if (!shouldIgnore) {
+        this.debug();
         this.emitChanges();
       }
     });
 
     // This finally says 'Watch for changes' and only needs to be called the one time
-    observer.observe($('.ember-view.layout')[0], {
+    observer.observe(document.body, {
       subtree: true,
       childList: true,
       characterData: true,
       attributes: true,
       attributeFilter: ['class'],
     });
+  }
 
-    instance = this;
+  debug() {
+    if (ynabToolKit.environment !== 'development') {
+      return;
+    }
+
+    console.debug('Changed nodes', this.changedNodes);
+
+    if (this.changedNodes.size !== this.lastChangedNodes.size) {
+      this.lastChangedNodes = this.changedNodes;
+      this.duplicateCount = 0;
+      return;
+    }
+
+    const isDuplicate = Array.from(this.changedNodes).every((element) =>
+      this.lastChangedNodes.has(element)
+    );
+    if (isDuplicate && ++this.duplicateCount % 100 === 0) {
+      console.warn(
+        `Changed nodes have been the same for ${this.duplicateCount} emits. A feature is likely always updating DOM elements inside an observe without an proper exit condition.`,
+        this.changedNodes
+      );
+    } else if (!isDuplicate) {
+      this.duplicateCount = 0;
+    }
+
+    this.lastChangedNodes = this.changedNodes;
   }
 
   addFeature(feature) {
@@ -61,11 +100,15 @@ export class ObserveListener {
     }
   }
 
+  removeFeature(feature) {
+    this.features.removeAt(this.features.indexOf(feature));
+  }
+
   emitChanges() {
-    this.features.forEach(feature => {
+    this.features.forEach((feature) => {
       const observe = feature.observe.bind(feature, this.changedNodes);
       const wrapped = withToolkitError(observe, feature);
-      Ember.run.later(() => {
+      later(() => {
         const startFeatureObserve = Date.now();
 
         wrapped();

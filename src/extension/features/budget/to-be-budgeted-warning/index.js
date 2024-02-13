@@ -10,30 +10,28 @@ export class ToBeBudgetedWarning extends Feature {
     return isCurrentRouteBudgetPage();
   }
 
-  invoke() {
-    // check if TBB > zero, if so, change background color
-    if ($('.budget-header-totals-amount-value .currency').hasClass('positive')) {
-      $('.budget-header-totals-amount').addClass('toolkit-cautious');
-      $('.budget-header-totals-amount-arrow').addClass('toolkit-cautious');
-    } else {
-      $('.budget-header-totals-amount').removeClass('toolkit-cautious');
-      $('.budget-header-totals-amount-arrow').removeClass('toolkit-cautious');
-    }
-  }
-
   observe(changedNodes) {
     if (!this.shouldInvoke()) return;
 
     if (
-      changedNodes.has('budget-header-item budget-header-calendar') ||
-      changedNodes.has('budget-header-totals-cell-value user-data')
+      changedNodes.has('budget-header-item budget-header-totals') ||
+      changedNodes.has('budget-header-item budget-header-calendar tk-highlight-current-month')
     ) {
-      this.invoke();
+      this.addClasses(document.querySelector('.to-be-budgeted'));
     }
   }
 
-  onRouteChanged() {
-    if (!this.shouldInvoke()) return;
-    this.invoke();
+  invoke() {}
+
+  addClasses(element) {
+    if (element.classList.contains('is-positive')) {
+      element.classList.add('tk-tbb-warning');
+    } else {
+      element.classList.remove('tk-tbb-warning');
+    }
+  }
+
+  destroy() {
+    $('.tk-tbb-warning').removeClass('tk-tbb-warning');
   }
 }

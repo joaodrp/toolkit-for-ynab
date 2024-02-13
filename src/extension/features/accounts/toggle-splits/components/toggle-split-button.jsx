@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { getToolkitStorageKey, setToolkitStorageKey } from 'toolkit/extension/utils/toolkit';
 import { l10n } from 'toolkit/extension/utils/toolkit';
-import { getEmberView } from 'toolkit/extension/utils/ember';
-import { getEntityManager } from 'toolkit/extension/utils/ynab';
+import { getAccountsService, getRegisterGridService } from 'toolkit/extension/utils/ynab';
 
 export class ToggleSplitButton extends React.Component {
   state = {
@@ -20,8 +19,16 @@ export class ToggleSplitButton extends React.Component {
   render() {
     return (
       <button className="button tk-toggle-splits" onClick={this.toggleSplits}>
-        {this.state.areAllSplitsExpanded && <i className="flaticon stroke down" />}
-        {!this.state.areAllSplitsExpanded && <i className="flaticon stroke right" />}
+        {this.state.areAllSplitsExpanded && (
+          <svg className="ynab-new-icon" width="10" height="10">
+            <use href={`#icon_sprite_caret_down`} />
+          </svg>
+        )}
+        {!this.state.areAllSplitsExpanded && (
+          <svg className="ynab-new-icon" width="10" height="10">
+            <use href={`#icon_sprite_caret_right`} />
+          </svg>
+        )}
         {l10n('toolkit.toggleSplits', 'Toggle Splits')}
       </button>
     );
@@ -40,29 +47,25 @@ export class ToggleSplitButton extends React.Component {
   };
 
   hideAllSplits = () => {
-    const { scheduledTransactionsCollection, transactionsCollection } = getEntityManager();
     const collapsedSplitsMap = {};
 
-    [scheduledTransactionsCollection, transactionsCollection].forEach(collection => {
-      collection.reduce((reduced, transaction) => {
-        if (transaction.getIsSplit()) {
-          reduced[transaction.get('entityId')] = true;
-        }
-
-        return reduced;
-      }, collapsedSplitsMap);
+    const { visibleTransactionDisplayItems } = getRegisterGridService();
+    visibleTransactionDisplayItems.forEach((transaction) => {
+      if (transaction.isSplit) {
+        collapsedSplitsMap[transaction?.entityId] = true;
+      }
     });
 
-    const emberView = getEmberView($('.ynab-grid').attr('id'));
-    if (emberView) {
-      emberView.set('collapsedSplits', collapsedSplitsMap);
+    const accountService = getAccountsService();
+    if (accountService) {
+      accountService.collapsedSplits = collapsedSplitsMap;
     }
   };
 
   showAllSplits = () => {
-    const emberView = getEmberView($('.ynab-grid').attr('id'));
-    if (emberView) {
-      emberView.set('collapsedSplits', {});
+    const accountsService = getAccountsService();
+    if (accountsService) {
+      accountsService.collapsedSplits = {};
     }
   };
 }

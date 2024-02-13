@@ -1,19 +1,26 @@
 import { Feature } from 'toolkit/extension/features/feature';
-import { controllerLookup } from 'toolkit/extension/utils/ember';
+import { serviceLookup } from 'toolkit/extension/utils/ember';
 import { l10n } from 'toolkit/extension/utils/toolkit';
 
 export class BulkManagePayees extends Feature {
   observe(changedNodes) {
     if (
-      changedNodes.has(
-        'ynab-u modal-popup modal-account-edit-transaction-list modal-overlay active'
-      )
+      changedNodes.has('modal-overlay active ynab-u modal-popup modal-account-register-action-bar')
     ) {
-      this.invoke();
+      const element = document.querySelector('.modal-account-register-action-bar');
+      this.insertManagePayees(element);
     }
   }
 
-  invoke() {
+  destroy() {
+    $('#tk-manage-payees, #tk-manage-payees + li').remove();
+  }
+
+  insertManagePayees(element) {
+    if (element.querySelector('#tk-manage-payees') !== null) {
+      return;
+    }
+
     const menuText = l10n('toolkit.accountsBulkManagePayees', 'Manage Payees');
 
     // Note that ${menuText} was intentionally placed on the same line as the <i> tag to
@@ -23,13 +30,16 @@ export class BulkManagePayees extends Feature {
     //
     // The second <li> functions as a separator on the menu after the feature menu item.
     $('.modal-account-edit-transaction-move').before(
-      $(`<li>
-            <button class="toolkit-modal-select-budget-manage-payees">
-            <i class="ynab-new-icon ember-view flaticon stroke group"><!----></i>${menuText}
-            </button>
-          </li>
-          <li><hr /><li>`).click(() => {
-        controllerLookup('accounts').send('openPayeeModal');
+      $(`<li id="tk-manage-payees">
+          <button class="button-list toolkit-modal-select-budget-manage-payees">
+            <svg class="ynab-new-icon " width="16" height="16">
+              <use href="#icon_sprite_arrows_circle_fill"></use>
+            </svg>${menuText}
+          </button>
+        </li>
+        <li><hr /><li>
+      `).on('click', () => {
+        serviceLookup('accounts').openPayeeModal();
       })
     );
   }

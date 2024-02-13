@@ -4,32 +4,41 @@ import { Feature } from 'toolkit/extension/features/feature';
 import { isCurrentRouteBudgetPage } from 'toolkit/extension/utils/ynab';
 import { formatCurrency } from 'toolkit/extension/utils/currency';
 import { Collections } from 'toolkit/extension/utils/collections';
+import moment from 'moment';
 
 export class DaysOfBuffering extends Feature {
-  _lookbackMonths = parseInt(ynabToolKit.options.DaysOfBufferingHistoryLookup);
-
-  _lookbackDays = this._lookbackMonths * 30;
+  get lookbackDays() {
+    return (parseInt(this.settings.enabled) || 0) * 30;
+  }
 
   injectCSS() {
     return require('./index.css');
   }
 
+  destroy() {
+    document.querySelector('.tk-days-of-buffering')?.remove();
+  }
+
   shouldInvoke() {
-    return isCurrentRouteBudgetPage() && !document.querySelector('toolkit-days-of-buffering');
+    return isCurrentRouteBudgetPage();
   }
 
   invoke() {
     const eligibleTransactions = getEntityManager()
       .getAllTransactions()
       .filter(this._eligibleTransactionFilter);
-    const onBudgetAccounts = Collections.accountsCollection.getOnBudgetAccounts();
+    let onBudgetAccounts = Collections.accountsCollection.getOnBudgetAccounts();
 
     let onBudgetBalance = 0;
     if (onBudgetAccounts) {
-      onBudgetBalance = onBudgetAccounts.reduce((reduced, current) => {
-        const calculation = current.getAccountCalculation();
-        if (calculation && !calculation.getAccountIsTombstone()) {
-          reduced += calculation.getBalance();
+      // filter credit card accounts if enabled option is '2'
+      if (ynabToolKit.options.DaysOfBufferingExcludeCreditCards) {
+        onBudgetAccounts = onBudgetAccounts.filter((acc) => acc.accountType !== 'CreditCard');
+      }
+
+      onBudgetBalance = onBudgetAccounts.reduce((reduced, { accountCalculation }) => {
+        if (accountCalculation && !accountCalculation.isTombstone) {
+          reduced += accountCalculation.balance;
         }
 
         return reduced;
@@ -48,61 +57,56 @@ export class DaysOfBuffering extends Feature {
 
   _updateDisplay(calculation) {
     const { averageDailyOutflow, daysOfBuffering, availableDates, totalOutflow } = calculation;
-    const daysOfBufferingContainer = document.querySelector('.toolkit-days-of-buffering');
+    const daysOfBufferingContainer = document.querySelector('.tk-days-of-buffering');
     let $displayElement = $(daysOfBufferingContainer);
     if (!daysOfBufferingContainer) {
       $displayElement = $('<div>', {
-        class: 'budget-header-item budget-header-days toolkit-days-of-buffering',
-      })
-        .append(
-          $('<div>', {
-            class: 'budget-header-days-age',
-            title: l10n('toolkit.dob.tooltip', "Don't like AoM? Try this out instead!"),
-          })
-        )
-        .append(
-          $('<div>', {
-            class: 'budget-header-days-label',
-            text: l10n('toolkit.dob.title', 'Days of Buffering'),
-            title: l10n('toolkit.dob.tooltip', "Don't like AoM? Try this out instead!"),
-          })
-        );
+        class: 'budget-header-item budget-header-days tk-days-of-buffering',
+      }).append(
+        $('<div>')
+          .append(
+            $('<div>', {
+              class: 'budget-header-days-age',
+              title: l10n('toolkit.dob.tooltip', "Don't like AoM? Try this out instead!"),
+            })
+          )
+          .append(
+            $('<div>', {
+              class: 'budget-header-days-label',
+              text: l10n('toolkit.dob.title', 'Days of Buffering'),
+              title: l10n('toolkit.dob.tooltip', "Don't like AoM? Try this out instead!"),
+            })
+          )
+      );
 
       $('.budget-header-flexbox').append($displayElement);
     }
 
-    if (calculation.notEnoughDates) {
-      $('.budget-header-days-age', $displayElement).text('???');
-      $('.budget-header-days-age', $displayElement).attr(
-        'title',
-        l10n(
-          'toolkit.dob.noHistory',
-          'Your budget history is less than 15 days. Go on with YNAB a while.'
-        )
-      );
-    } else {
+    let text = '???';
+    let title = l10n(
+      'toolkit.dob.noHistory',
+      'Your budget history is less than 15 days. Go on with YNAB a while.'
+    );
+
+    if (!calculation.notEnoughDates) {
       const dayText =
         daysOfBuffering === 1.0
           ? l10n('budget.ageOfMoneyDays.one', 'day')
           : l10n('budget.ageOfMoneyDays.other', 'days');
-      $('.budget-header-days-age', $displayElement).text(`${daysOfBuffering} ${dayText}`);
-      $('.budget-header-days-age', $displayElement).attr(
-        'title',
-        `${l10n('toolkit.dob.outflow', 'Total outflow')}: ${formatCurrency(totalOutflow)}
-${l10n('toolkit.dob.days', 'Total days of budgeting')}: ${availableDates}
-${l10n('toolkit.dob.avgOutflow', 'Average daily outflow')}: ~${formatCurrency(averageDailyOutflow)}`
-      );
+      text = `${daysOfBuffering} ${dayText}`;
 
-      // #1475 - add an event listener to $displayElement to show the date on mouseover
-      if (ynabToolKit.options.DaysOfBufferingDate) {
-        $('.budget-header-days-age', $displayElement).mouseover(
-          null,
-          function() {
-            this._showDateOfBuffering(daysOfBuffering);
-          }.bind(this)
-        );
-      }
+      title = `${l10n('toolkit.dob.outflow', 'Total outflow')}: ${formatCurrency(totalOutflow)}`;
+      title += `\n${l10n('toolkit.dob.days', 'Total days of budgeting')}: ${availableDates}`;
+      title += `\n${l10n('toolkit.dob.avgOutflow', 'Average daily outflow')}: ~${formatCurrency(
+        averageDailyOutflow
+      )}`;
+
+      const dateOfBuffering = this._getDateOfBuffering(daysOfBuffering);
+      title += `\n${l10n('toolkit.dob.dateOfBuffering', 'Date of buffering')}: ${dateOfBuffering}`;
     }
+
+    $('.budget-header-days-age', $displayElement).text(text);
+    $('.budget-header-days-age', $displayElement).attr('title', title);
   }
 
   /**
@@ -117,7 +121,7 @@ ${l10n('toolkit.dob.avgOutflow', 'Average daily outflow')}: ~${formatCurrency(av
   _calculateDaysOfBuffering = (balance, transactions) => {
     const { dates, totalOutflow, uniqueDates } = transactions.reduce(
       (reduced, current) => {
-        const { amount, date } = current.getProperties('amount', 'date');
+        const { amount, date } = current;
         reduced.dates.push(date.toUTCMoment());
         reduced.uniqueDates.set(date.format());
         reduced.totalOutflow += amount;
@@ -129,8 +133,8 @@ ${l10n('toolkit.dob.avgOutflow', 'Average daily outflow')}: ~${formatCurrency(av
     const minDate = moment.min(dates);
     const maxDate = moment.max(dates);
     const availableDates =
-      this._lookbackDays !== 0
-        ? Math.min(this._lookbackDays, maxDate.diff(minDate, 'days'))
+      this.lookbackDays !== 0
+        ? Math.min(this.lookbackDays, maxDate.diff(minDate, 'days'))
         : maxDate.diff(minDate, 'days');
 
     let averageDailyOutflow = Math.abs(totalOutflow / availableDates);
@@ -156,77 +160,38 @@ ${l10n('toolkit.dob.avgOutflow', 'Average daily outflow')}: ~${formatCurrency(av
     };
   };
 
-  _eligibleTransactionFilter = transaction => {
+  _eligibleTransactionFilter = (transaction) => {
     const today = ynab.utilities.DateWithoutTime.createForToday();
 
     let isEligibleDate = false;
-    if (this._lookbackDays === 0) {
+    if (this.lookbackDays === 0) {
       isEligibleDate = true;
     } else {
-      isEligibleDate = transaction.get('date').daysApart(today) < this._lookbackDays;
+      isEligibleDate = transaction.date.daysApart(today) < this.lookbackDays;
     }
 
     return (
       isEligibleDate &&
-      !transaction.get('isTombstone') &&
-      !transaction.get('payee.isInternal') &&
+      !transaction.isTombstone &&
+      !transaction.payee?.isInternal &&
       !transaction.isTransferTransaction() &&
-      transaction.get('account.onBudget') &&
-      transaction.get('amount') < 0 &&
-      transaction.get('accepted')
+      transaction.account.onBudget &&
+      transaction.amount < 0 &&
+      transaction.accepted
     );
   };
 
   /**
-   * #1745 - Display the date of buffering on mouseover
+   * #1745 - Display the date of buffering
    *
    * Date of Buffering is calculated from todays date + days of buffering
    */
-  _showDateOfBuffering(daysOfBuffering) {
-    /*
-     * Get the parent div for the daysContainer.
-     * This is used to:
-     *    1. To get the Days Of Buffering
-     *    2. Display the Date of Buffering to the user
-     */
-    const toolkitDaysOfBuffering = document.querySelector('.toolkit-days-of-buffering');
-
-    /*
-     * Get the div containing the Age Of Money (AOM)
-     * If enabled, days of buffering has the same class, however AOM will always be the first element
-     */
-    const daysContainer = toolkitDaysOfBuffering.firstElementChild;
-
+  _getDateOfBuffering(daysOfBuffering) {
     // Calculate the Date Of Buffering by adding Days Of Buffering to today's date
     const today = ynab.utilities.DateWithoutTime.createForToday();
     const dateOfBuffering = today.addDays(daysOfBuffering);
 
     // Apply the user's date format
-    const dateOfBufferingFormatted = ynab.formatDate(dateOfBuffering.format());
-
-    // Create and style the node to display
-    let dateOfBufferingContainer = daysContainer.cloneNode();
-    dateOfBufferingContainer.innerText = dateOfBufferingFormatted;
-
-    // Display the Date Of Money to the user
-    daysContainer.style.display = 'none';
-    toolkitDaysOfBuffering.insertBefore(dateOfBufferingContainer, daysContainer);
-
-    // Add the event listener to hide Date Of Money and display Age Of Money
-    dateOfBufferingContainer.addEventListener(
-      'mouseout',
-      function() {
-        this._hideDateOfBuffering(daysContainer, dateOfBufferingContainer);
-      }.bind(this)
-    );
-  }
-
-  /**
-   * #1745 - Hide the Date of Buffering on mouseout. Display Days of Buffering again.
-   */
-  _hideDateOfBuffering(daysContainer, dateOfBufferingContainer) {
-    // Delete Date Of Money div from the dom and display Age Of Money again
-    dateOfBufferingContainer.remove();
-    daysContainer.style.display = '';
+    return ynab.formatDate(dateOfBuffering.format());
   }
 }

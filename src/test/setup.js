@@ -18,15 +18,33 @@ export function readyYNAB(options = {}) {
     return settings;
   }, {});
 
-  global.Ember = ember;
-  global.Em = ember;
+  global.requireModule = (module) => {
+    switch (module) {
+      case 'ember':
+        return {
+          default: {
+            ...ember,
+            Namespace: {
+              NAMESPACES: [
+                {
+                  lookup: jest.fn(),
+                  __container__: {
+                    cache: {},
+                  },
+                },
+              ],
+            },
+          },
+        };
+      case '@ember/runloop':
+        return ember.run;
+    }
+  };
   global.$ = $;
   global.ynabToolKit = options.ynabToolKit || { options: toolkitOptions };
 }
 
 export function unreadyYNAB() {
-  global.Ember = undefined;
-  global.Em = undefined;
   global.$ = undefined;
   global.ynabToolKit = undefined;
 }

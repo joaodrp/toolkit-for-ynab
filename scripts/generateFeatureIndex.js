@@ -3,18 +3,18 @@ const glob = require('glob');
 const fs = require('fs');
 const path = require('path');
 
-const FEATURES_PROJECT_DIR = path.join('src', 'extension', 'features');
-const FEATURES_INDEX_PROJECT_PATH = path.join(FEATURES_PROJECT_DIR, 'index.js');
+const FEATURES_PROJECT_DIR = 'src/extension/features';
+const FEATURES_INDEX_PROJECT_PATH = path.join(FEATURES_PROJECT_DIR, 'index.ts');
 
 function run(callback) {
-  glob(`${FEATURES_PROJECT_DIR}/*/**/settings.js`, (error, files) => {
+  glob(`${FEATURES_PROJECT_DIR}/**/settings.js`, (error, files) => {
     if (error) return callback(error);
 
     let imports = [];
     let errorCheckingLines = [];
     let featureNames = [];
 
-    files.forEach(filePath => {
+    files.forEach((filePath) => {
       const filePathSplit = filePath.split('/');
       const projectFeaturePath = filePathSplit.slice(0, filePathSplit.length - 1).join(path.sep);
 
@@ -67,7 +67,7 @@ export const features = [
   fs.writeFile(featureIndexPath, fileContents, callback);
 }
 
-run(error => {
+run((error) => {
   if (error) {
     console.log(`Error: ${error}`.red);
     process.exit(1);
